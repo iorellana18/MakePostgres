@@ -1,0 +1,17 @@
+# Defaults for pgpool initscript
+# sourced by /etc/init.d/pgpool2
+ 
+# set to "yes" if you want to enable debugging messages to the log
+PGPOOL_LOG_DEBUG=no
+ 
+# config file
+PGPOOL_CONFIG_FILE=/etc/pgpool2/3.5.2/pgpool.conf
+ 
+# hba file
+PGPOOL_HBA_CONFIG_FILE=/etc/pgpool2/3.5.2/pool_hba.conf
+ 
+# pcp config file
+PGPOOL_PCP_CONFIG_FILE=/etc/pgpool2/3.5.2/pcp.conf
+ 
+# PID file. Must be the same as defined in pgpool.conf (pid_file_name)
+PGPOOL_PID_FILE=/var/run/postgresql/pgpool.pid
