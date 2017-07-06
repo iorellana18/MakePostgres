@@ -6,8 +6,19 @@ password = pass
 replicationpassword = pass
 replicationuser = replication
 slotname = slotname
+
+############### Directorios ######################
+# Configuración de postgresql
 config = /etc/postgresql/9.5/main
+# Scripts sql
+sql = /etc/postgresql/9.5/main/sql
+# Scripts pgpool
+poolsql = pgpool-II-3.5.2/src/sql/
+# Postgresql data
 data = /var/lib/postgresql/9.5/main
+# Pgpool main
+pgpool = /etc/pgpool2/3.5.2/
+# Pgpool share
 sharepool = /usr/share/pgpool2/3.5.2/
 
 ############# Ayuda ######################
@@ -94,15 +105,14 @@ pgpool:
 	#
 	# Configurando pgpool-II
 	#
-	$ pgpool-II-3.5.2/configure --prefix=/usr/share/pgpool2/3.5.2
-	$ make
-	$ make install
-	$ mv $(sharepool)etc/pcp.conf.sample /etc/pgpool2/3.5.2/
-	$ mv $(sharepool)etc/pgpool.conf.sample /etc/pgpool2/3.5.2/
-	$ mv $(sharepool)etc/pgpool.conf.sample-master-slave /etc/pgpool2/3.5.2/
-	$ mv $(sharepool)etc/pgpool.conf.sample-replication /etc/pgpool2/3.5.2/
-	$ mv $(sharepool)etc/pgpool.conf.sample-stream /etc/pgpool2/3.5.2/
-	$ mv $(sharepool)etc/pool_hba.conf.sample /etc/pgpool2/3.5.2/
+	$ mkdir /etc/pgpool2/
+	$ mkdir $(pgpool)
+	$ mv $(sharepool)etc/pcp.conf.sample $(pgpool)
+	$ mv $(sharepool)etc/pgpool.conf.sample $(pgpool)
+	$ mv $(sharepool)etc/pgpool.conf.sample-master-slave $(pgpool)
+	$ mv $(sharepool)etc/pgpool.conf.sample-replication $(pgpool)
+	$ mv $(sharepool)etc/pgpool.conf.sample-stream $(pgpool)
+	$ mv $(sharepool)etc/pool_hba.conf.sample $(pgpool)
 	$ cp $(sharepool)bin/pcp_attach_node /usr/sbin/
 	$ cp $(sharepool)bin/pcp_detach_node /usr/sbin/
 	$ cp $(sharepool)bin/pcp_node_count /usr/sbin/
@@ -117,49 +127,28 @@ pgpool:
 	$ cp $(sharepool)bin/pg_md5 /usr/sbin/
 	$ cp $(sharepool)bin/pgpool /usr/sbin/
 	# Create SQL scripts directory:
-	$ mkdir $(config)/sql
-	# Navigate to source directory:
-	$ cd ~/pgpool-II-3.5.2
-	# Navigate to src/sql subdirectory:
-	$ cd src/sql
-	# While there let's copy the first script file:
-	$ cp insert_lock.sql $(config)/sql/
-	# Navigate to pgpool_adm (the first extension) subdirectory:
-	$ cd pgpool_adm
-	# Let's copy pgpool_adm extension:
-	$ cp pgpool_adm.control /usr/share/postgresql/9.5/extension/
-	$ cp pgpool_adm--1.0.sql /usr/share/postgresql/9.5/extension/
-	# While there let's copy SQL script file also (note that I'm changing extension of the file also):
-	$ cp pgpool_adm.sql.in $(config)/sql/pgpool_adm.sql
-	# Navigate up in order to select another extension:
-	$ cd ..
-	# Navigate to pgpool-recovery (the next extension) subdirectory:
-	$ cd pgpool-recovery
-	# Let's copy pgpool-recovery extension:
-	$ cp pgpool_recovery.control /usr/share/postgresql/9.5/extension/
-	$ cp pgpool_recovery--1.1.sql /usr/share/postgresql/9.5/extension/
-	# While there let's copy SQL script files also (note that I'm changing extension of the file also):
-	$ cp pgpool-recovery.sql.in $(config)/sql/pgpool-recovery.sql
-	$ cp uninstall_pgpool-recovery.sql $(config)/sql/
-	# Navigate up in order to select another extension:
-	$ cd ..
-	# Navigate to pgpool-regclass (the next extension) subdirectory:
-	$ cd pgpool-regclass
-	# Let's copy pgpool-regclass extension:
-	$ cp pgpool_regclass.control /usr/share/postgresql/9.5/extension/
-	$ cp pgpool_regclass--1.0.sql /usr/share/postgresql/9.5/extension/
-	# While there let's copy SQL script files also (note that I'm changing extension of the file also):
-	$ cp pgpool-regclass.sql.in $(config)/sql/pgpool-regclass.sql
-	$ cp uninstall_pgpool-regclass.sql $(config)/sql/
+	$ mkdir $(sql)
+	$ cp $(poolsql)insert_lock.sql $(sql)/
+	$ cp $(poolsql)pgpool_adm/pgpool_adm.control /usr/share/postgresql/9.5/extension/
+	$ cp $(poolsql)pgpool_adm/pgpool_adm--1.0.sql /usr/share/postgresql/9.5/extension/
+	$ cp $(poolsql)pgpool_adm/pgpool_adm.sql.in $(sql)/pgpool_adm.sql
+	$ cp $(poolsql)pgpool-recovery/pgpool_recovery.control /usr/share/postgresql/9.5/extension/
+	$ cp $(poolsql)pgpool-recovery/pgpool_recovery--1.1.sql /usr/share/postgresql/9.5/extension/
+	$ cp $(poolsql)pgpool-recovery/pgpool-recovery.sql.in $(sql)/pgpool-recovery.sql
+	$ cp $(poolsql)pgpool-recovery/uninstall_pgpool-recovery.sql $(sql)/
+	$ cp $(poolsql)pgpool-regclass/pgpool_regclass.control /usr/share/postgresql/9.5/extension/
+	$ cp $(poolsql)pgpool-regclass/pgpool_regclass--1.0.sql /usr/share/postgresql/9.5/extension/
+	$ cp $(poolsql)pgpool-regclass/pgpool-regclass.sql.in $(sql)/pgpool-regclass.sql
+	$ cp $(poolsql)pgpool-regclass/uninstall_pgpool-regclass.sql $(sql)/
 	#
 	# Falta configurar archivos
 	#
-	$ chown postgres:postgres -R $(config)/sql
+	#$ chown postgres:postgres -R $(sql)
 	#
 	# Configurar scripts
 	#
-	$ update-rc.d pgpool2 defaults
-	$ update-rc.d pgpool2 disable
+	#$ update-rc.d pgpool2 defaults
+	#$ update-rc.d pgpool2 disable
 
 ############## Configuración de servidor maestro  ##################
 
@@ -275,3 +264,10 @@ clean:
 	$(INS_DEPS) --purge remove postgresql\*
 	$ rm -r /etc/postgresql/
 	$ rm -r /var/lib/postgresql/
+	#
+	# Eliminar pgpool
+	#
+	$(INS_DEPS) remove --auto-remove pgpool2
+	$(INS_DEPS) purge pgpool2
+	$(INS_DEPS) purge --auto-remove pgpool2
+	$ rm -r /etc/pgpool2/
