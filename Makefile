@@ -164,8 +164,8 @@ scripts:
 	#
 	# Instalar características
 	#
-	$ sudo -u postgres psql -f $(sql)/pgpool-recovery.sql template1
-	$ sudo -u postgres psql -f $(sql)/pgpool_adm.sql template1
+	#$ sudo -u postgres psql -f $(sql)/pgpool-recovery.sql template1
+	#$ sudo -u postgres psql -f $(sql)/pgpool_adm.sql template1
 	#
 	# Copiar archivos locales
 	#
@@ -197,18 +197,22 @@ scripts:
 	$ sed -i '50s=/tmp=/var/run/postgresql=' $(pgpool)pgpool.conf
 	$ sed -i '218s=/var/run/pgpool/pgpool.pid=/var/run/postgresql/pgpool.pid=' $(pgpool)pgpool.conf
 	$ sed -i '333s/nobody/postgres/' $(pgpool)pgpool.conf
-	$ sed -i '337s/''/'$(password)'/' $(pgpool)pgpool.conf
+	$ sed -i "337s/''/'$(password)'/" $(pgpool)pgpool.conf
 	$ sed -i '367s/0/5/' $(pgpool)pgpool.conf
 	$ sed -i '370s/20/0/' $(pgpool)pgpool.conf
 	$ sed -i '373s/nobody/postgres/' $(pgpool)pgpool.conf
-	$ sed -i '375s/''/'$(password)'/' $(pgpool)pgpool.conf
-	$ sed -i '394s=''='/etc/pgpool2/3.5.2/failover.sh %d %P %H $(replicationpassword) /etc/postgresql/9.5/main/im_the_master'
+	$ sed -i "375s/''/'$(password)'/" $(pgpool)pgpool.conf
+	$ sed -i "394s=''='/etc/pgpool2/3.5.2/failover.sh %d %P %H $(replicationpassword) /etc/postgresql/9.5/main/im_the_master'=" $(pgpool)pgpool.conf
 	$ sed -i '439s/nobody/postgres/' $(pgpool)pgpool.conf
-	$ sed -i '441s/''/'$(password)/' $(pgpool)pgpool.conf
-	$ sed -i '443s/''/'recovery_1st_stage.sh'/' $(pgpool)pgpool.conf
+	$ sed -i "441s/''/'$(password)/" $(pgpool)pgpool.conf
+	$ sed -i "443s/''/'recovery_1st_stage.sh'/" $(pgpool)pgpool.conf
 	$ sed -i '465s/off/on/' $(pgpool)pgpool.conf
 	# En caso de que se requiera un servidor de confirmación
-	# $ sed -i '471s/''/<trust_server>/'' $(pgpool)pgpool.conf
+	# $ sed -i "471s/'/<trust_server>/'" $(pgpool)pgpool.conf
+	$(eval IP := $(shell ifconfig | awk -F':' '/Direc. inet/&&!/127.0.0.1/{split($2,_," ");print _[1]}'))
+	$ sed -i "482s/''/$(IP)/" $(pgpool)pgpool.conf
+	$ sed -i '496s=/tmp=/var/run/postgresql=' $(pgpool)pgpool.conf
+	$ sed -i '554s/10/3/' $(pgpool)pgpool.conf
 
 ############## Configuración de servidor maestro  ##################
 
@@ -256,6 +260,19 @@ slave:
 	$ echo "primary_slot_name = '<slotname>'">>$(data)/recovery.conf
 	$ echo "primary_conninfo = 'host=<IP_MASTER> port=5433 user=replication password=$(replicationpassword)'">>$(data)/recovery.conf
 	$ echo "trigger_file = '$(config)/im_the_master'">>$(data)/recovery.conf
+	# $(MAKE) pool-slave
+
+################ Configuración slave pgpool ########################
+
+.PHONY: pool_slave
+
+pool_slave:
+	$ sed -i '569s/host0_ip1/$(ip_master)/' $(pgpool)pgpool.conf
+	$ sed -i '610s/#//' $(pgpool)pgpool.conf
+	$ sed -i '613s/#//' $(pgpool)pgpool.conf
+	$ sed -i '616s/#//' $(pgpool)pgpool.conf
+	$ sed -i '610s/host1/$(ip_master)/' $(pgpool)pgpool.conf
+
 
 ############## Configuración failover ##################
 
@@ -331,7 +348,3 @@ clean:
 	$(INS_DEPS) purge pgpool2
 	$(INS_DEPS) purge --auto-remove pgpool2
 	$ rm -r /etc/pgpool2/
-
-test:
-	LOCALIP=$(shell ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | awk '{print $1}'); \
-        echo "var LOCAL_IP = '$${LOCALIP}'" > local_ip.js
