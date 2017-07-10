@@ -6,6 +6,8 @@ password = pass
 replicationpassword = pass
 replicationuser = replication
 slotname = slotname
+md5 = e8a48653851e28c69d0506508fb27fc5
+ip_master = 158.170.168.205
 
 ############### Directorios ######################
 # Configuración de postgresql
@@ -126,29 +128,87 @@ pgpool:
 	$ cp $(sharepool)bin/pcp_watchdog_info /usr/sbin/
 	$ cp $(sharepool)bin/pg_md5 /usr/sbin/
 	$ cp $(sharepool)bin/pgpool /usr/sbin/
-	# Create SQL scripts directory:
+	# Copiar SQL scripts:
 	$ mkdir $(sql)
 	$ cp $(poolsql)insert_lock.sql $(sql)/
 	$ cp $(poolsql)pgpool_adm/pgpool_adm.control /usr/share/postgresql/9.5/extension/
 	$ cp $(poolsql)pgpool_adm/pgpool_adm--1.0.sql /usr/share/postgresql/9.5/extension/
-	$ cp $(poolsql)pgpool_adm/pgpool_adm.sql.in $(sql)/pgpool_adm.sql
 	$ cp $(poolsql)pgpool-recovery/pgpool_recovery.control /usr/share/postgresql/9.5/extension/
 	$ cp $(poolsql)pgpool-recovery/pgpool_recovery--1.1.sql /usr/share/postgresql/9.5/extension/
-	$ cp $(poolsql)pgpool-recovery/pgpool-recovery.sql.in $(sql)/pgpool-recovery.sql
 	$ cp $(poolsql)pgpool-recovery/uninstall_pgpool-recovery.sql $(sql)/
 	$ cp $(poolsql)pgpool-regclass/pgpool_regclass.control /usr/share/postgresql/9.5/extension/
 	$ cp $(poolsql)pgpool-regclass/pgpool_regclass--1.0.sql /usr/share/postgresql/9.5/extension/
-	$ cp $(poolsql)pgpool-regclass/pgpool-regclass.sql.in $(sql)/pgpool-regclass.sql
 	$ cp $(poolsql)pgpool-regclass/uninstall_pgpool-regclass.sql $(sql)/
+	$ chown postgres:postgres -R $(sql)
 	#
-	# Falta configurar archivos
+	# Copiar archivos modificados
 	#
-	#$ chown postgres:postgres -R $(sql)
+	$ cp sqlfiles/pgpool_adm.sql $(sql)
+	$ cp sqlfiles/pgpool-recovery.sql $(sql)
+	$ cp sqlfiles/pgpool-regclass.sql $(sql)
+	$ cp servicescripts/pgpool2_default /etc/default/pgpool2
+	$ cp servicescripts/pgpool2_init /etc/init.d/pgpool2
+	$ sudo chmod -R 777 /etc/default/pgpool2
+	$ sudo chmod -E 777 /etc/init-d/pgpool2
 	#
-	# Configurar scripts
+	# Registrar servicio
 	#
-	#$ update-rc.d pgpool2 defaults
-	#$ update-rc.d pgpool2 disable
+	$ update-rc.d pgpool2 defaults
+	$ update-rc.d pgpool2 disable
+
+
+#################### Preparar scripts Postgres-pgpool ########################
+.PHONY: scripts
+
+scripts:
+	#
+	# Instalar características
+	#
+	$ sudo -u postgres psql -f $(sql)/pgpool-recovery.sql template1
+	$ sudo -u postgres psql -f $(sql)/pgpool_adm.sql template1
+	#
+	# Copiar archivos locales
+	#
+	$ cp failoverscripts/failover.sh $(pgpool)
+	$ chown postgres:postgres $(pgpool)failover.sh
+	$ chmod 0700 $(pgpool)failover.sh
+	$ cp failoverscripts/recovery_1st_stage.sh $(data)/
+	$ chown postgres:postgres $(data)/recovery_1st_stage.sh
+	$ chmod 0700 $(data)/recovery_1st_stage.sh
+	$ cp failoverscripts/pgpool_remote_start $(data)/
+	$ chown postgres:postgres $(data)/pgpool_remote_start
+	$ chmod 0700 $(data)/pgpool_remote_start
+	#
+	# Configurando pgpool-II
+	#
+	$ echo "pgpool.pg_ctl = '/usr/lib/postgresql/9.5/bin/pg_ctl'" >> $(config)/postgresql.conf
+	$ cp $(pgpool)pcp.conf.sample $(pgpool)pcp.conf
+	$ echo "postgres:$(md5)" $(pgpool)pcp.conf
+	#
+	# Añadir  trust para los usuarios postgres
+	#
+	#
+	# Configurar archivo pgpool.conf
+	#
+	$ cp $(pgpool)pgpool.conf.sample-stream $(pgpool)pgpool.conf
+	$ sed -i '27s/localhost/*/' $(pgpool)pgpool.conf
+	$ sed -i '31s/9999/5432/' $(pgpool)pgpool.conf
+	$ sed -i '34s=/tmp=/var/run/postgresql=' $(pgpool)pgpool.conf
+	$ sed -i '50s=/tmp=/var/run/postgresql=' $(pgpool)pgpool.conf
+	$ sed -i '218s=/var/run/pgpool/pgpool.pid=/var/run/postgresql/pgpool.pid=' $(pgpool)pgpool.conf
+	$ sed -i '333s/nobody/postgres/' $(pgpool)pgpool.conf
+	$ sed -i '337s/''/'$(password)'/' $(pgpool)pgpool.conf
+	$ sed -i '367s/0/5/' $(pgpool)pgpool.conf
+	$ sed -i '370s/20/0/' $(pgpool)pgpool.conf
+	$ sed -i '373s/nobody/postgres/' $(pgpool)pgpool.conf
+	$ sed -i '375s/''/'$(password)'/' $(pgpool)pgpool.conf
+	$ sed -i '394s=''='/etc/pgpool2/3.5.2/failover.sh %d %P %H $(replicationpassword) /etc/postgresql/9.5/main/im_the_master'
+	$ sed -i '439s/nobody/postgres/' $(pgpool)pgpool.conf
+	$ sed -i '441s/''/'$(password)/' $(pgpool)pgpool.conf
+	$ sed -i '443s/''/'recovery_1st_stage.sh'/' $(pgpool)pgpool.conf
+	$ sed -i '465s/off/on/' $(pgpool)pgpool.conf
+	# En caso de que se requiera un servidor de confirmación
+	# $ sed -i '471s/''/<trust_server>/'' $(pgpool)pgpool.conf
 
 ############## Configuración de servidor maestro  ##################
 
@@ -166,7 +226,7 @@ master:
 	# Crear slot de replicación
 	#
 	$ psql -c "SELECT * FROM pg_create_physical_replication_slot('$(slotname)');" -U postgres
-
+	# Falt configurar backend pgpool
 
 ############## Configuración de servidor esclavo ##################
 
@@ -271,3 +331,7 @@ clean:
 	$(INS_DEPS) purge pgpool2
 	$(INS_DEPS) purge --auto-remove pgpool2
 	$ rm -r /etc/pgpool2/
+
+test:
+	LOCALIP=$(shell ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | awk '{print $1}'); \
+        echo "var LOCAL_IP = '$${LOCALIP}'" > local_ip.js
