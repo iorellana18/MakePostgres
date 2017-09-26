@@ -1,0 +1,14 @@
+#!/bin/bash
+# By Fat Dragon, 05/26/2016
+# Wraps arping command
+
+if [ $UID -eq 0 ]
+then
+        #echo "Executing: /usr/bin/arping $@"
+        /usr/bin/arping $@
+else
+        #echo "Executing: sudo /usr/bin/arping $@"
+        sudo /usr/bin/arping $@
+fi
+
+exit 0

@@ -1,0 +1,14 @@
+#!/bin/bash
+# By Fat Dragon, 05/26/2016
+# Wraps ip command
+
+if [ $UID -eq 0 ]
+then
+        #echo "Executing: /bin/ip $@"
+        /bin/ip $@
+else
+        #echo "Executing: sudo /bin/ip $@"
+        sudo /bin/ip $@
+fi
+
+exit 0

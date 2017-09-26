@@ -214,6 +214,33 @@ scripts:
 	$ sed -i '496s=/tmp=/var/run/postgresql=' $(pgpool)pgpool.conf
 	$ sed -i '554s/10/3/' $(pgpool)pgpool.conf
 
+
+
+############## Configuraciones finales  ##################
+
+.PHONY: final
+
+final:
+	$(INS_DEPS) install iputils-arping apache2 php5 libapache2-mod-php5 php5-pgsql
+	$ echo 'postgres ALL=(root) NOPASSWD: /bin/ip' | sudo EDITOR='tee -a' visudo
+	$ echo 'www-data ALL=(root) NOPASSWD: /bin/ip' | sudo EDITOR='tee -a' visudo
+	$ echo 'postgres ALL=(root) NOPASSWD: /usr/bin/arping' | sudo EDITOR='tee -a' visudo
+	$ echo 'www-data ALL=(root) NOPASSWD: /usr/bin/arping' | sudo EDITOR='tee -a' visudo
+	$ cp /wrappers/ip_w /bin/
+	$ cp /wrappers/arping_w /usr/bin/
+	$ chmod 0755 /bin/ip_w
+	$ chmod 0755 /usr/bin/arping_w
+	$ sed -i '508s/sbin/bin/' $(pgpool)pgpool.conf
+	$ sed -i '511s/ip/ip_w/' $(pgpool)pgpool.conf
+	$ sed -i '514s/ip/ip_w/' $(pgpool)pgpool.conf
+	$ sed -i '517s/sbin/bin/' $(pgpool)pgpool.conf
+	$ sed -i '520s/arping/arping_w/' $(pgpool)pgpool.conf
+	$ sed -i '83s/off/on/' $(pgpool)pgpool.conf
+	$ cp $(pgpool)pool_hba.conf.sample $(pgpool)Fmpool_hba.conf
+	$ echo "postgres:$(md5)" $(pgpool)pool_passwd
+	$ update-rc.d pgpool2 enable
+	$ service pgpool2 start
+
 ############## Configuración de servidor maestro  ##################
 
 .PHONY: master
